@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <!-- Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المحاسب الشخصي</title>
+
+  <!-- Manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome for Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <!-- html2pdf (اختياري) -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- SheetJS (XLSX) -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    :root {
+      --bg-color: #f8f9fa;
+      --text-color: #000;
+      --report-bg: #ffffff;
+      --button-color: #007bff;
+    }
+    body {
+      font-family: 'Tajawal', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      direction: rtl;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+    /* Header */
+    .header {
+      width: 100%;
+      background: linear-gradient(to left, var(--button-color), #00c6ff);
+      color: #fff;
+      text-align: center;
+      padding: 30px 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+    .header p {
+      font-size: 1.2rem;
+    }
+    /* Section headers */
+    .section-header {
+      position: relative;
+      text-align: center;
+      margin: 30px 0;
+      font-size: 2rem;
+      font-weight: bold;
+    }
+    .section-header::before,
+    .section-header::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 30%;
+      height: 2px;
+      background: var(--text-color);
+    }
+    .section-header::before { left: 0; }
+    .section-header::after { right: 0; }
+    .section-header span {
+      padding: 0 10px;
+      background: var(--bg-color);
+      position: relative;
+      z-index: 1;
+    }
+    /* تنسيق رؤوس الجدول في المنتصف */
+    table.table-bordered th {
+      text-align: center;
+      vertical-align: middle;
+    }
+    /* ألوان الأزرار وحالات السداد */
+    .btn-danger-custom {
+      background-color: #dc3545;
+      border-color: #dc3545;
+    }
+    .btn-success-custom {
+      background-color: #28a745;
+      border-color: #28a745;
+    }
+    .status-red {
+      color: red;
+      font-weight: bold;
+    }
+    .status-green {
+      color: green;
+      font-weight: bold;
+    }
+    .status-yellow {
+      color: #ffc107;
+      font-weight: bold;
+    }
+    /* تقرير ملخص */
+    .report {
+      margin-top: 20px;
+      padding: 20px;
+      background-color: var(--report-bg);
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      transition: transform 0.2s ease;
+    }
+    .icon-btn:hover {
+      transform: scale(1.05);
+    }
+    .transaction-table {
+      margin-top: 20px;
+    }
+    .search-container {
+      margin-top: 20px;
+    }
+    .message-container {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      z-index: 9999;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-weight: bold;
+      animation: fadeIn 0.5s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    /* Ripple effect */
+    .btn {
+      position: relative;
+      overflow: hidden;
+    }
+    .btn .ripple {
+      position: absolute;
+      border-radius: 50%;
+      transform: scale(0);
+      animation: ripple 600ms linear;
+      background-color: rgba(255, 255, 255, 0.7);
+    }
+    @keyframes ripple {
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+    /* Hover effect for table rows */
+    table.table-bordered tbody tr:hover {
+      background-color: #e9ecef;
+      transition: background-color 0.3s ease;
+      cursor: pointer;
+    }
+    /* منع التفاف النصوص داخل خلايا الجدول */
+    table.table-bordered th,
+    table.table-bordered td {
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+<!-- زر تثبيت التطبيق -->
+<button id="installBtn" class="btn btn-primary" style="display:none;" data-bs-toggle="tooltip" title="تثبيت التطبيق">
+  <i class="fas fa-download"></i> تثبيت التطبيق
+</button>
+
+<!-- Toast Notification Container -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+  <div id="toastContainer" class="toast align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="toastMessage"></div>
+      <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Header Section -->
+<div class="container-fluid header fade-in">
+  <h1><i class="fas fa-cash-register"></i> متابعة الماليات</h1>
+  <p>إدارة الديون بسهولة ودقة مع نظام متابعة الماليات الذكى</p>
+</div>
+
+<!-- Add Transaction Form -->
+<div class="container mt-3 fade-in">
+  <div class="section-header">
+    <span data-bs-toggle="tooltip" title="أضف معاملة جديدة"><i class="fas fa-plus-circle"></i> إضافة معاملة جديدة</span>
+  </div>
+  <form id="transactionForm">
+    <div class="mb-3">
+      <label for="creditor" class="form-label"><i class="fas fa-user"></i> الدائن</label>
+      <input type="text" class="form-control" id="creditor" placeholder="اسم الدائن" required>
+    </div>
+    <div class="mb-3">
+      <label for="debtor" class="form-label"><i class="fas fa-user"></i> المدين</label>
+      <input type="text" class="form-control" id="debtor" placeholder="اسم المدين" required>
+    </div>
+    <div class="mb-3">
+      <label for="amount" class="form-label"><i class="fas fa-money-bill"></i> المبلغ (بالجنيه)</label>
+      <input type="number" class="form-control" id="amount" placeholder="المبلغ" required>
+    </div>
+    <div class="mb-3">
+      <label for="description" class="form-label"><i class="fas fa-pencil-alt"></i> وصف المعاملة</label>
+      <textarea class="form-control" id="description" rows="3" placeholder="وصف المعاملة"></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary icon-btn" data-bs-toggle="tooltip" title="إضافة المعاملة">
+      <i class="fas fa-check"></i> إضافة المعاملة
+    </button>
+  </form>
+</div>
+
+<!-- Search for Person -->
+<div class="container search-container fade-in">
+  <div class="section-header">
+    <span data-bs-toggle="tooltip" title="ابحث عن معاملات شخص معين"><i class="fas fa-search"></i> بحث عن شخص</span>
+  </div>
+  <div class="input-group">
+    <input type="text" class="form-control" id="personSearchInput" placeholder="أدخل اسم الشخص">
+    <button id="personSearchBtn" class="btn btn-primary" data-bs-toggle="tooltip" title="تنفيذ البحث">بحث</button>
+  </div>
+  <div id="personSearchResults" class="mt-3"></div>
+</div>
+
+<!-- Transactions Table -->
+<div class="container transaction-table">
+  <div class="section-header">
+    <span data-bs-toggle="tooltip" title="استعرض جميع المعاملات"><i class="fas fa-list-ul"></i> قائمة المعاملات</span>
+  </div>
+  <!-- رسالة إرشادية للتمرير الأفقي -->
+  <p class="text-center text-muted">إذا لم يظهر الجدول بالكامل، يرجى التمرير أفقيًا.</p>
+  <div class="table-responsive">
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>الدائن</th>
+          <th>المدين</th>
+          <th>المبلغ</th>
+          <th>الوصف</th>
+          <th>حالة السداد</th>
+          <th>آخر تحديث</th>
+          <th>العمليات</th>
+        </tr>
+      </thead>
+      <tbody id="transactionsTableBody">
+        <!-- تعبئة المعاملات ديناميكياً -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Summary Report -->
+<div class="container report">
+  <div class="section-header">
+    <span data-bs-toggle="tooltip" title="عرض تقرير ملخص للمعاملات"><i class="fas fa-chart-bar"></i> تقرير ملخص</span>
+  </div>
+  <ul id="detailedReport" class="list-group">
+    <!-- تعبئة التقرير الملخص ديناميكياً -->
+  </ul>
+</div>
+
+<!-- Button to export all info to Excel (after Summary Report) -->
+<div class="container mt-3 fade-in">
+  <button id="exportExcelBtn" class="btn btn-primary icon-btn" data-bs-toggle="tooltip" title="حفظ كافة المعلومات في ملف إكسيل">
+    <i class="fas fa-file-excel"></i> حفظ كافة المعلومات في ملف إكسيل
+  </button>
+</div>
+
+<!-- Bootstrap and Popper.js -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // تهيئة التلميحات (Tooltips)
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+  });
+
+  // إضافة تأثير Ripple لجميع الأزرار
+  document.querySelectorAll('.btn').forEach(function(button) {
+    button.addEventListener('click', function(e) {
+      const circle = document.createElement('span');
+      const diameter = Math.max(this.clientWidth, this.clientHeight);
+      const radius = diameter / 2;
+      circle.style.width = circle.style.height = `${diameter}px`;
+      circle.style.left = `${e.clientX - this.getBoundingClientRect().left - radius}px`;
+      circle.style.top = `${e.clientY - this.getBoundingClientRect().top - radius}px`;
+      circle.classList.add('ripple');
+      const ripple = this.getElementsByClassName('ripple')[0];
+      if (ripple) {
+        ripple.remove();
+      }
+      this.appendChild(circle);
+    });
+  });
+
+  // آلية توليد أرقام فريدة للمعاملات
+  function getNextTransactionId() {
+    let nextId = parseInt(localStorage.getItem('nextTransactionId')) || 1;
+    localStorage.setItem('nextTransactionId', nextId + 1);
+    return nextId;
+  }
+
+  // استرجاع المعاملات من LocalStorage
+  let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+  let detailedReport = {};
+
+  // تحديث LocalStorage
+  function updateLocalStorage() {
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  }
+
+  // الحصول على التوقيت الحالي (يُستخدم في ملف الإكسيل)
+  function getCurrentTimestamp() {
+    const now = new Date();
+    return now.toLocaleString('ar-EG');
+  }
+
+  // دالة showMessage مع دعم أنواع جديدة لتطابق ألوان الأزرار
+  function showMessage(message, type) {
+    const toastEl = document.getElementById("toastContainer");
+    const toastBody = document.getElementById("toastMessage");
+    toastEl.classList.remove("bg-success", "bg-danger", "bg-warning", "bg-info", "bg-primary", "text-white", "text-dark");
+    if (type === "primary") {
+      toastEl.classList.add("bg-primary", "text-white");
+    } else if (type === "danger") {
+      toastEl.classList.add("bg-danger", "text-white");
+    } else if (type === "warning") {
+      toastEl.classList.add("bg-warning", "text-dark");
+    } else if (type === "success") {
+      toastEl.classList.add("bg-success", "text-white");
+    } else if (type === "info") {
+      toastEl.classList.add("bg-info", "text-white");
+    }
+    toastBody.innerHTML = `<div style="display: flex; align-items: center; width: 100%;">
+      <span>${message}</span>
+    </div>`;
+    const toast = new bootstrap.Toast(toastEl, { delay: 1000 });
+    toastEl.addEventListener("click", function hideToastOnClick() {
+      toast.hide();
+      toastEl.removeEventListener("click", hideToastOnClick);
+    });
+    toast.show();
+  }
+
+  // دالة لتحديث نتائج البحث بحيث يتم عرضها بنفس تنسيق جدول المعاملات
+  function updateSearchResults() {
+    const searchTerm = document.getElementById("personSearchInput").value.trim().toLowerCase();
+    const resultsContainer = document.getElementById("personSearchResults");
+    if (!searchTerm) {
+      resultsContainer.innerHTML = "";
+      return;
+    }
+    const filtered = transactions.filter(function(t) {
+      return t.creditor.toLowerCase().includes(searchTerm) || t.debtor.toLowerCase().includes(searchTerm);
+    });
+    if (filtered.length === 0) {
+      resultsContainer.innerHTML = "<p>لم يتم العثور على معاملات لهذا الشخص.</p>";
+    } else {
+      let html = `<p class="text-center text-muted">إذا لم يظهر الجدول بالكامل، يرجى التمرير أفقيًا.</p>`;
+      html += `<div class="table-responsive">
+                  <table class="table table-bordered">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>الدائن</th>
+                        <th>المدين</th>
+                        <th>المبلغ</th>
+                        <th>الوصف</th>
+                        <th>حالة السداد</th>
+                        <th>آخر تحديث</th>
+                        <th>العمليات</th>
+                      </tr>
+                    </thead>
+                    <tbody>`;
+      filtered.forEach(function(t) {
+        let operations = "";
+        if (t.parentId) {
+          operations = `<button onclick="deleteTransaction(${t.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف الخصم">
+                            <i class="fas fa-trash-alt"></i>
+                          </button>`;
+        } else {
+          operations = `<div class="operation-cell">
+                            <button onclick="deductTransaction(${t.id})" class="btn btn-warning btn-sm icon-btn" data-bs-toggle="tooltip" title="خصم">
+                              <i class="fas fa-minus"></i>
+                            </button>
+                            <button onclick="togglePaymentStatus(${t.id})" class="btn btn-success btn-sm icon-btn" data-bs-toggle="tooltip" title="تغيير حالة السداد">
+                              <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <button onclick="deleteTransaction(${t.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف المعاملة">
+                              <i class="fas fa-trash-alt"></i>
+                            </button>
+                          </div>`;
+        }
+        html += `<tr>
+                    <td>${t.id}</td>
+                    <td>${t.creditor}</td>
+                    <td>${t.debtor}</td>
+                    <td>${t.amount} جنيه</td>
+                    <td>${t.description}</td>
+                    <td class="${t.status === 'تم الدفع' ? 'status-green' : (t.status === 'خصم' ? 'status-yellow' : 'status-red')}">${t.status}</td>
+                    <td>${t.timestamp}</td>
+                    <td class="operation-cell">${operations}</td>
+                  </tr>`;
+      });
+      html += `</tbody></table></div>`;
+      resultsContainer.innerHTML = html;
+    }
+  }
+
+  // إضافة مستمع للنقر على زر البحث لتحديث نتائج البحث
+  document.getElementById("personSearchBtn").addEventListener("click", function() {
+    updateSearchResults();
+  });
+
+  // إضافة معاملة جديدة
+  document.getElementById('transactionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const creditor = document.getElementById('creditor').value.trim();
+    const debtor = document.getElementById('debtor').value.trim();
+    const amount = parseFloat(document.getElementById('amount').value);
+    const description = document.getElementById('description').value.trim();
+    const status = "لم يتم الدفع";
+    const timestamp = getCurrentTimestamp();
+    if (!creditor || !debtor || isNaN(amount) || amount <= 0) {
+      alert("يرجى إدخال بيانات صحيحة.");
+      return;
+    }
+    const transaction = {
+      id: getNextTransactionId(),
+      creditor: creditor,
+      debtor: debtor,
+      amount: amount,
+      description: description,
+      status: status,
+      timestamp: timestamp
+    };
+    transactions.push(transaction);
+    updateLocalStorage();
+    updateTransactionsTable();
+    generateDetailedReport();
+    clearForm();
+    // عرض رسالة "تم إضافة المعاملة بنجاح" بلون زر الإضافة (primary)
+    showMessage("تم إضافة المعاملة بنجاح", "primary");
+    updateSearchResults();
+  });
+
+  // عملية الخصم
+  function deductTransaction(id) {
+    const original = transactions.find(function(t) { return t.id === id && !t.parentId; });
+    if (!original) return;
+    let totalDeduction = transactions.filter(function(x) { return x.parentId === original.id; })
+                                      .reduce(function(sum, x) { return sum + x.amount; }, 0);
+    let remaining = original.amount - totalDeduction;
+    const deductionAmount = parseFloat(prompt("أدخل مبلغ الخصم:"));
+    if (isNaN(deductionAmount) || deductionAmount <= 0) {
+      alert("يرجى إدخال مبلغ صالح للخصم.");
+      return;
+    }
+    if (deductionAmount > remaining) {
+      alert("مبلغ الخصم أكبر من الرصيد المتبقي.");
+      return;
+    }
+    const newTransaction = {
+      id: getNextTransactionId(),
+      parentId: original.id,
+      creditor: original.creditor,
+      debtor: original.debtor,
+      amount: deductionAmount,
+      description: `خصم من المعاملة رقم ${original.id}`,
+      status: "خصم",
+      timestamp: getCurrentTimestamp()
+    };
+    transactions.push(newTransaction);
+    totalDeduction = transactions.filter(function(x) { return x.parentId === original.id; })
+                                  .reduce(function(sum, x) { return sum + x.amount; }, 0);
+    remaining = original.amount - totalDeduction;
+    if (remaining <= 0) {
+      original.status = "تم الدفع";
+    }
+    updateLocalStorage();
+    updateTransactionsTable();
+    generateDetailedReport();
+    // عرض رسالة "تمت عملية الخصم بنجاح" بلون زر الخصم (warning)
+    showMessage("تمت عملية الخصم بنجاح", "warning");
+    updateSearchResults();
+  }
+
+  // تغيير حالة السداد
+  function togglePaymentStatus(id) {
+    const transaction = transactions.find(function(t) { return t.id === id; });
+    if (transaction) {
+      transaction.status = (transaction.status === "لم يتم الدفع") ? "تم الدفع" : "لم يتم الدفع";
+      transaction.timestamp = getCurrentTimestamp();
+      updateLocalStorage();
+      updateTransactionsTable();
+      generateDetailedReport();
+      showMessage("تم تحديث حالة  السداد بنجاح", "success");
+      updateSearchResults();
+    }
+  }
+
+  // حذف معاملة
+  function deleteTransaction(id) {
+    const transaction = transactions.find(function(t) { return t.id === id; });
+    if (!transaction) return;
+    if (transaction.parentId) {
+      if (!confirm("هل أنت متأكد من حذف الخصم؟")) return;
+      transactions = transactions.filter(function(t) { return t.id !== id; });
+      const parent = transactions.find(function(t) { return t.id === transaction.parentId; });
+      if (parent) {
+        let totalDeduction = transactions.filter(function(x) { return x.parentId === parent.id; })
+                                          .reduce(function(sum, x) { return sum + x.amount; }, 0);
+        let remaining = parent.amount - totalDeduction;
+        parent.status = (remaining > 0) ? "لم يتم الدفع" : "تم الدفع";
+        parent.timestamp = getCurrentTimestamp();
+      }
+    } else {
+      if (!confirm("هل أنت متأكد من حذف المعاملة الأساسية مع جميع الخصومات التابعة لها؟")) return;
+      transactions = transactions.filter(function(t) { return t.id !== id && t.parentId !== id; });
+    }
+    updateLocalStorage();
+    updateTransactionsTable();
+    generateDetailedReport();
+    // عرض رسالة "تم حذف المعاملة بنجاح" بلون زر الحذف (danger)
+    showMessage("تم حذف المعاملة بنجاح", "danger");
+    updateSearchResults();
+  }
+
+  // تفريغ حقول النموذج
+  function clearForm() {
+    document.getElementById('creditor').value = '';
+    document.getElementById('debtor').value = '';
+    document.getElementById('amount').value = '';
+    document.getElementById('description').value = '';
+  }
+
+  // توليد التقرير الملخص (المعاملات الأصلية مع حساب الخصومات)
+  function generateDetailedReport() {
+    const reportList = document.getElementById('detailedReport');
+    reportList.innerHTML = '';
+    let reportData = {};
+    transactions.forEach(function(t) {
+      if (!t.parentId) {
+        let total = t.amount;
+        let deductionSum = transactions.filter(function(x) { return x.parentId === t.id; })
+                                        .reduce(function(sum, x) { return sum + x.amount; }, 0);
+        let net = total - deductionSum;
+        if (t.status === "تم الدفع") {
+          net = 0;
+        }
+        if (!reportData[t.creditor]) {
+          reportData[t.creditor] = { creditorAmount: 0, debtorAmount: 0 };
+        }
+        if (!reportData[t.debtor]) {
+          reportData[t.debtor] = { creditorAmount: 0, debtorAmount: 0 };
+        }
+        reportData[t.creditor].creditorAmount += net;
+        reportData[t.debtor].debtorAmount += net;
+      }
+    });
+    let html = "";
+    Object.keys(reportData).forEach(function(person) {
+      html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+          ${person}: له ${reportData[person].creditorAmount} جنيه، عليه ${reportData[person].debtorAmount} جنيه.
+          <i class="fas fa-info-circle text-muted"></i>
+        </li>`;
+    });
+    reportList.innerHTML = html;
+  }
+
+  // حفظ كافة المعلومات في ملف إكسيل مع ورقتين: "المعاملات" و"تقرير ملخص"
+  document.getElementById("exportExcelBtn").addEventListener("click", function() {
+    try {
+      const transactionsData = transactions.map(function(t) {
+        return {
+          "#": t.id,
+          "الدائن": t.creditor,
+          "المدين": t.debtor,
+          "المبلغ": t.amount + " جنيه",
+          "الوصف": t.description,
+          "حالة السداد": t.status,
+          "آخر تحديث": t.timestamp
+        };
+      });
+      const reportData = [];
+      let tempReport = {};
+      transactions.forEach(function(t) {
+        if (!t.parentId) {
+          let total = t.amount;
+          let deductionSum = transactions.filter(function(x) { return x.parentId === t.id; })
+                                         .reduce(function(sum, x) { return sum + x.amount; }, 0);
+          let net = total - deductionSum;
+          if (t.status === "تم الدفع") {
+            net = 0;
+          }
+          if (!tempReport[t.creditor]) {
+            tempReport[t.creditor] = { creditorAmount: 0, debtorAmount: 0 };
+          }
+          if (!tempReport[t.debtor]) {
+            tempReport[t.debtor] = { creditorAmount: 0, debtorAmount: 0 };
+          }
+          tempReport[t.creditor].creditorAmount += net;
+          tempReport[t.debtor].debtorAmount += net;
+        }
+      });
+      Object.keys(tempReport).forEach(function(person) {
+        reportData.push({
+          "الشخص": person,
+          "المبلغ المستحق": tempReport[person].creditorAmount + " جنيه",
+          "المبلغ المطلوب": tempReport[person].debtorAmount + " جنيه"
+        });
+      });
+      const wsTransactions = XLSX.utils.json_to_sheet(transactionsData);
+      const rangeTrans = XLSX.utils.decode_range(wsTransactions['!ref']);
+      for (let R = rangeTrans.s.r; R <= rangeTrans.e.r; ++R) {
+        for (let C = rangeTrans.s.c; C <= rangeTrans.e.c; ++C) {
+          let cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+          if(wsTransactions[cellRef]) {
+            wsTransactions[cellRef].s = {
+              border: {
+                top: { style: "thin", color: { rgb: "000000" } },
+                bottom: { style: "thin", color: { rgb: "000000" } },
+                left: { style: "thin", color: { rgb: "000000" } },
+                right: { style: "thin", color: { rgb: "000000" } }
+              }
+            };
+          }
+        }
+      }
+      const wsReport = XLSX.utils.json_to_sheet(reportData);
+      const rangeReport = XLSX.utils.decode_range(wsReport['!ref']);
+      for (let R = rangeReport.s.r; R <= rangeReport.e.r; ++R) {
+        for (let C = rangeReport.s.c; C <= rangeReport.e.c; ++C) {
+          let cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+          if(wsReport[cellRef]) {
+            wsReport[cellRef].s = {
+              border: {
+                top: { style: "thin", color: { rgb: "000000" } },
+                bottom: { style: "thin", color: { rgb: "000000" } },
+                left: { style: "thin", color: { rgb: "000000" } },
+                right: { style: "thin", color: { rgb: "000000" } }
+              }
+            };
+          }
+        }
+      }
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, wsTransactions, "المعاملات");
+      XLSX.utils.book_append_sheet(wb, wsReport, "تقرير ملخص");
+      XLSX.writeFile(wb, "transactions.xlsx", { bookType: "xlsx", bookSST: false, cellStyles: true });
+      showMessage("تم حفظ المعلومات في ملف إكسيل.", "success");
+    } catch (error) {
+      console.error("Error exporting Excel file:", error);
+      showMessage("حدث خطأ أثناء حفظ المعلومات.", "error");
+    }
+  });
+
+  // تحميل البيانات من LocalStorage عند التحميل
+  window.addEventListener('load', function() {
+    updateTransactionsTable();
+    generateDetailedReport();
+    updateSearchResults();
+  });
+
+  // تسجيل Service Worker (PWA)
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(function(reg) {
+        console.log('Service Worker registered', reg);
+      })
+      .catch(function(err) {
+        console.error('Service Worker registration failed', err);
+      });
+  }
+
+  // وظيفة تحديث جدول المعاملات
+  function updateTransactionsTable() {
+    const tableBody = document.getElementById('transactionsTableBody');
+    tableBody.innerHTML = '';
+    transactions.forEach(function(transaction) {
+      let operations = "";
+      if (transaction.parentId) {
+        operations = `<button onclick="deleteTransaction(${transaction.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف الخصم">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>`;
+      } else {
+        operations = `<div class="operation-cell">
+                        <button onclick="deductTransaction(${transaction.id})" class="btn btn-warning btn-sm icon-btn" data-bs-toggle="tooltip" title="خصم">
+                          <i class="fas fa-minus"></i>
+                        </button>
+                        <button onclick="togglePaymentStatus(${transaction.id})" class="btn btn-success btn-sm icon-btn" data-bs-toggle="tooltip" title="تغيير حالة السداد">
+                          <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button onclick="deleteTransaction(${transaction.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف المعاملة">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </div>`;
+      }
+      const row = `
+        <tr>
+          <td>${transaction.id}</td>
+          <td>${transaction.creditor}</td>
+          <td>${transaction.debtor}</td>
+          <td>${transaction.amount} جنيه</td>
+          <td>${transaction.description}</td>
+          <td class="${transaction.status === 'تم الدفع' ? 'status-green' : (transaction.status === 'خصم' ? 'status-yellow' : 'status-red')}">${transaction.status}</td>
+          <td>${transaction.timestamp}</td>
+          <td class="operation-cell">${operations}</td>
+        </tr>
+      `;
+      tableBody.innerHTML += row;
+    });
+  }
+</script>
+</body>
+</html>

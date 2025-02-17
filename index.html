@@ -174,8 +174,8 @@
 <body>
 
 <!-- زر تثبيت التطبيق -->
-<button id="installBtn" class="btn btn-primary" style="display:none;" data-bs-toggle="tooltip" title="تثبيت التطبيق">
-  <i class="fas fa-download"></i> تثبيت التطبيق
+<button id="installBtn" class="btn btn-primary" style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; display: none;" data-bs-toggle="tooltip" title="تثبيت التطبيق">
+  <i class="fas fa-download"></i>
 </button>
 
 <!-- Toast Notification Container -->
@@ -210,7 +210,7 @@
     </div>
     <div class="mb-3">
       <label for="amount" class="form-label"><i class="fas fa-money-bill"></i> المبلغ (بالجنيه)</label>
-      <input type="number" class="form-control" id="amount" placeholder="المبلغ" required>
+      <input type="number" step="any" class="form-control" id="amount" placeholder="المبلغ" required>
     </div>
     <div class="mb-3">
       <label for="description" class="form-label"><i class="fas fa-pencil-alt"></i> وصف المعاملة</label>

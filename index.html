@@ -210,7 +210,7 @@
     </div>
     <div class="mb-3">
       <label for="amount" class="form-label"><i class="fas fa-money-bill"></i> المبلغ (بالجنيه)</label>
-      <input type="number" class="form-control" id="amount" placeholder="المبلغ" required>
+      <input type="number" step="any" class="form-control" id="amount" placeholder="المبلغ" required>
     </div>
     <div class="mb-3">
       <label for="description" class="form-label"><i class="fas fa-pencil-alt"></i> وصف المعاملة</label>
@@ -328,104 +328,7 @@
     return now.toLocaleString('ar-EG');
   }
 
-  // دالة showMessage مع دعم أنواع جديدة لتطابق ألوان الأزرار
-  function showMessage(message, type) {
-    const toastEl = document.getElementById("toastContainer");
-    const toastBody = document.getElementById("toastMessage");
-    toastEl.classList.remove("bg-success", "bg-danger", "bg-warning", "bg-info", "bg-primary", "text-white", "text-dark");
-    if (type === "primary") {
-      toastEl.classList.add("bg-primary", "text-white");
-    } else if (type === "danger") {
-      toastEl.classList.add("bg-danger", "text-white");
-    } else if (type === "warning") {
-      toastEl.classList.add("bg-warning", "text-dark");
-    } else if (type === "success") {
-      toastEl.classList.add("bg-success", "text-white");
-    } else if (type === "info") {
-      toastEl.classList.add("bg-info", "text-white");
-    }
-    toastBody.innerHTML = `<div style="display: flex; align-items: center; width: 100%;">
-      <span>${message}</span>
-    </div>`;
-    const toast = new bootstrap.Toast(toastEl, { delay: 1000 });
-    toastEl.addEventListener("click", function hideToastOnClick() {
-      toast.hide();
-      toastEl.removeEventListener("click", hideToastOnClick);
-    });
-    toast.show();
-  }
-
-  // دالة لتحديث نتائج البحث بحيث يتم عرضها بنفس تنسيق جدول المعاملات
-  function updateSearchResults() {
-    const searchTerm = document.getElementById("personSearchInput").value.trim().toLowerCase();
-    const resultsContainer = document.getElementById("personSearchResults");
-    if (!searchTerm) {
-      resultsContainer.innerHTML = "";
-      return;
-    }
-    const filtered = transactions.filter(function(t) {
-      return t.creditor.toLowerCase().includes(searchTerm) || t.debtor.toLowerCase().includes(searchTerm);
-    });
-    if (filtered.length === 0) {
-      resultsContainer.innerHTML = "<p>لم يتم العثور على معاملات لهذا الشخص.</p>";
-    } else {
-      let html = `<p class="text-center text-muted">إذا لم يظهر الجدول بالكامل، يرجى التمرير أفقيًا.</p>`;
-      html += `<div class="table-responsive">
-                  <table class="table table-bordered">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>الدائن</th>
-                        <th>المدين</th>
-                        <th>المبلغ</th>
-                        <th>الوصف</th>
-                        <th>حالة السداد</th>
-                        <th>آخر تحديث</th>
-                        <th>العمليات</th>
-                      </tr>
-                    </thead>
-                    <tbody>`;
-      filtered.forEach(function(t) {
-        let operations = "";
-        if (t.parentId) {
-          operations = `<button onclick="deleteTransaction(${t.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف الخصم">
-                            <i class="fas fa-trash-alt"></i>
-                          </button>`;
-        } else {
-          operations = `<div class="operation-cell">
-                            <button onclick="deductTransaction(${t.id})" class="btn btn-warning btn-sm icon-btn" data-bs-toggle="tooltip" title="خصم">
-                              <i class="fas fa-minus"></i>
-                            </button>
-                            <button onclick="togglePaymentStatus(${t.id})" class="btn btn-success btn-sm icon-btn" data-bs-toggle="tooltip" title="تغيير حالة السداد">
-                              <i class="fas fa-sync-alt"></i>
-                            </button>
-                            <button onclick="deleteTransaction(${t.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف المعاملة">
-                              <i class="fas fa-trash-alt"></i>
-                            </button>
-                          </div>`;
-        }
-        html += `<tr>
-                    <td>${t.id}</td>
-                    <td>${t.creditor}</td>
-                    <td>${t.debtor}</td>
-                    <td>${t.amount} جنيه</td>
-                    <td>${t.description}</td>
-                    <td class="${t.status === 'تم الدفع' ? 'status-green' : (t.status === 'خصم' ? 'status-yellow' : 'status-red')}">${t.status}</td>
-                    <td>${t.timestamp}</td>
-                    <td class="operation-cell">${operations}</td>
-                  </tr>`;
-      });
-      html += `</tbody></table></div>`;
-      resultsContainer.innerHTML = html;
-    }
-  }
-
-  // إضافة مستمع للنقر على زر البحث لتحديث نتائج البحث
-  document.getElementById("personSearchBtn").addEventListener("click", function() {
-    updateSearchResults();
-  });
-
-  // إضافة معاملة جديدة
+  // إضافة معاملة جديدة (أساسية)
   document.getElementById('transactionForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const creditor = document.getElementById('creditor').value.trim();
@@ -452,12 +355,51 @@
     updateTransactionsTable();
     generateDetailedReport();
     clearForm();
-    // عرض رسالة "تم إضافة المعاملة بنجاح" بلون زر الإضافة (primary)
-    showMessage("تم إضافة المعاملة بنجاح", "primary");
-    updateSearchResults();
+    showMessage("تمت إضافة المعاملة بنجاح.", "success");
   });
 
-  // عملية الخصم
+  // حذف معاملة
+  function deleteTransaction(id) {
+    const transaction = transactions.find(function(t) { return t.id === id; });
+    if (!transaction) return;
+    if (transaction.parentId) {
+      // تأكيد حذف خصم
+      if (!confirm("هل أنت متأكد من حذف الخصم؟")) return;
+      transactions = transactions.filter(function(t) { return t.id !== id; });
+      // إعادة حساب حالة المعاملة الأساسية
+      const parent = transactions.find(function(t) { return t.id === transaction.parentId; });
+      if (parent) {
+        let totalDeduction = transactions.filter(function(x) { return x.parentId === parent.id; })
+                                      .reduce(function(sum, x) { return sum + x.amount; }, 0);
+        let remaining = parent.amount - totalDeduction;
+        parent.status = (remaining > 0) ? "لم يتم الدفع" : "تم الدفع";
+        parent.timestamp = getCurrentTimestamp();
+      }
+    } else {
+      // تأكيد حذف معاملة أساسية مع خصوماتها التابعة لها
+      if (!confirm("هل أنت متأكد من حذف المعاملة الأساسية مع جميع الخصومات التابعة لها؟")) return;
+      transactions = transactions.filter(function(t) { return t.id !== id && t.parentId !== id; });
+    }
+    updateLocalStorage();
+    updateTransactionsTable();
+    generateDetailedReport();
+    showMessage("تم حذف المعاملة بنجاح.", "success");
+  }
+
+  // تغيير حالة السداد (للمعاملات الأساسية)
+  function togglePaymentStatus(id) {
+    const transaction = transactions.find(function(t) { return t.id === id; });
+    if (transaction) {
+      transaction.status = (transaction.status === "لم يتم الدفع") ? "تم الدفع" : "لم يتم الدفع";
+      transaction.timestamp = getCurrentTimestamp();
+      updateLocalStorage();
+      updateTransactionsTable();
+      generateDetailedReport();
+      showMessage("تم تحديث حالة السداد.", "success");
+    }
+  }
+
+  // عملية خصم: إنشاء معاملة خصم جديدة دون تعديل المعاملة الأصلية
   function deductTransaction(id) {
     const original = transactions.find(function(t) { return t.id === id && !t.parentId; });
     if (!original) return;
@@ -493,58 +435,48 @@
     updateLocalStorage();
     updateTransactionsTable();
     generateDetailedReport();
-    // عرض رسالة "تمت عملية الخصم بنجاح" بلون زر الخصم (warning)
-    showMessage("تمت عملية الخصم بنجاح", "warning");
-    updateSearchResults();
+    showMessage("تمت عملية الخصم بنجاح.", "success");
   }
 
-  // تغيير حالة السداد
-  function togglePaymentStatus(id) {
-    const transaction = transactions.find(function(t) { return t.id === id; });
-    if (transaction) {
-      transaction.status = (transaction.status === "لم يتم الدفع") ? "تم الدفع" : "لم يتم الدفع";
-      transaction.timestamp = getCurrentTimestamp();
-      updateLocalStorage();
-      updateTransactionsTable();
-      generateDetailedReport();
-      showMessage("تم تحديث حالة  السداد بنجاح", "success");
-      updateSearchResults();
-    }
-  }
-
-  // حذف معاملة
-  function deleteTransaction(id) {
-    const transaction = transactions.find(function(t) { return t.id === id; });
-    if (!transaction) return;
-    if (transaction.parentId) {
-      if (!confirm("هل أنت متأكد من حذف الخصم؟")) return;
-      transactions = transactions.filter(function(t) { return t.id !== id; });
-      const parent = transactions.find(function(t) { return t.id === transaction.parentId; });
-      if (parent) {
-        let totalDeduction = transactions.filter(function(x) { return x.parentId === parent.id; })
-                                          .reduce(function(sum, x) { return sum + x.amount; }, 0);
-        let remaining = parent.amount - totalDeduction;
-        parent.status = (remaining > 0) ? "لم يتم الدفع" : "تم الدفع";
-        parent.timestamp = getCurrentTimestamp();
+  // تحديث جدول المعاملات مع عرض عمود "آخر تحديث" وترتيب الأزرار أفقيًا دون التفاف
+  function updateTransactionsTable() {
+    const tableBody = document.getElementById('transactionsTableBody');
+    tableBody.innerHTML = '';
+    transactions.forEach(function(transaction) {
+      let operations = "";
+      if (transaction.parentId) {
+        // معاملة خصم: عرض زر حذف الخصم فقط
+        operations = `<button onclick="deleteTransaction(${transaction.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف الخصم">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>`;
+      } else {
+        // معاملة أساسية: عرض زر الخصم، زر تغيير حالة السداد، وزر الحذف داخل div بدون استخدام d-flex
+        operations = `<div class="operation-cell">
+                        <button onclick="deductTransaction(${transaction.id})" class="btn btn-warning btn-sm icon-btn" data-bs-toggle="tooltip" title="خصم">
+                          <i class="fas fa-minus"></i>
+                        </button>
+                        <button onclick="togglePaymentStatus(${transaction.id})" class="btn btn-success btn-sm icon-btn" data-bs-toggle="tooltip" title="تغيير حالة السداد">
+                          <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button onclick="deleteTransaction(${transaction.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف المعاملة">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </div>`;
       }
-    } else {
-      if (!confirm("هل أنت متأكد من حذف المعاملة الأساسية مع جميع الخصومات التابعة لها؟")) return;
-      transactions = transactions.filter(function(t) { return t.id !== id && t.parentId !== id; });
-    }
-    updateLocalStorage();
-    updateTransactionsTable();
-    generateDetailedReport();
-    // عرض رسالة "تم حذف المعاملة بنجاح" بلون زر الحذف (danger)
-    showMessage("تم حذف المعاملة بنجاح", "danger");
-    updateSearchResults();
-  }
-
-  // تفريغ حقول النموذج
-  function clearForm() {
-    document.getElementById('creditor').value = '';
-    document.getElementById('debtor').value = '';
-    document.getElementById('amount').value = '';
-    document.getElementById('description').value = '';
+      const row = `
+        <tr>
+          <td>${transaction.id}</td>
+          <td>${transaction.creditor}</td>
+          <td>${transaction.debtor}</td>
+          <td>${transaction.amount} جنيه</td>
+          <td>${transaction.description}</td>
+          <td class="${transaction.status === 'تم الدفع' ? 'status-green' : (transaction.status === 'خصم' ? 'status-yellow' : 'status-red')}">${transaction.status}</td>
+          <td>${transaction.timestamp}</td>
+          <td class="operation-cell">${operations}</td>
+        </tr>
+      `;
+      tableBody.innerHTML += row;
+    });
   }
 
   // توليد التقرير الملخص (المعاملات الأصلية مع حساب الخصومات)
@@ -579,6 +511,39 @@
         </li>`;
     });
     reportList.innerHTML = html;
+  }
+
+  // تفريغ حقول النموذج
+  function clearForm() {
+    document.getElementById('creditor').value = '';
+    document.getElementById('debtor').value = '';
+    document.getElementById('amount').value = '';
+    document.getElementById('description').value = '';
+  }
+
+  // عرض رسالة Toast لمدة 1000 مللي ثانية وتختفي فور النقر
+  function showMessage(message, type) {
+    const toastEl = document.getElementById("toastContainer");
+    const toastBody = document.getElementById("toastMessage");
+    toastEl.classList.remove("bg-success", "bg-danger", "bg-warning", "bg-info", "text-white", "text-dark");
+    if (type === "success") {
+      toastEl.classList.add("bg-success", "text-white");
+    } else if (type === "error") {
+      toastEl.classList.add("bg-danger", "text-white");
+    } else if (type === "warning") {
+      toastEl.classList.add("bg-warning", "text-dark");
+    } else if (type === "info") {
+      toastEl.classList.add("bg-info", "text-white");
+    }
+    toastBody.innerHTML = `<div style="display: flex; align-items: center; width: 100%;">
+      <span>${message}</span>
+    </div>`;
+    const toast = new bootstrap.Toast(toastEl, { delay: 1000 });
+    toastEl.addEventListener("click", function hideToastOnClick() {
+      toast.hide();
+      toastEl.removeEventListener("click", hideToastOnClick);
+    });
+    toast.show();
   }
 
   // حفظ كافة المعلومات في ملف إكسيل مع ورقتين: "المعاملات" و"تقرير ملخص"
@@ -668,14 +633,98 @@
     }
   });
 
+  // بحث عن معاملات شخص معين وتطبيق نفس تنسيق جدول المعاملات
+  document.getElementById("personSearchBtn").addEventListener("click", function() {
+    const searchTerm = document.getElementById("personSearchInput").value.trim().toLowerCase();
+    const resultsContainer = document.getElementById("personSearchResults");
+    resultsContainer.innerHTML = "";
+    if (!searchTerm) {
+      showMessage("يرجى إدخال اسم الشخص للبحث.", "error");
+      return;
+    }
+    const filtered = transactions.filter(function(t) {
+      return t.creditor.toLowerCase().includes(searchTerm) || t.debtor.toLowerCase().includes(searchTerm);
+    });
+    if (filtered.length === 0) {
+      resultsContainer.innerHTML = "<p>لم يتم العثور على معاملات لهذا الشخص.</p>";
+    } else {
+      let html = `<p class="text-center text-muted">إذا لم يظهر الجدول بالكامل، يرجى التمرير أفقيًا.</p>`;
+      html += `<div class="table-responsive">
+                  <table class="table table-bordered">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>الدائن</th>
+                        <th>المدين</th>
+                        <th>المبلغ</th>
+                        <th>الوصف</th>
+                        <th>حالة السداد</th>
+                        <th>آخر تحديث</th>
+                        <th>العمليات</th>
+                      </tr>
+                    </thead>
+                    <tbody>`;
+      filtered.forEach(function(t) {
+        let operations = "";
+        if (t.parentId) {
+          operations = `<button onclick="deleteTransaction(${t.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف الخصم">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>`;
+        } else {
+          operations = `<div class="operation-cell">
+                          <button onclick="deductTransaction(${t.id})" class="btn btn-warning btn-sm icon-btn" data-bs-toggle="tooltip" title="خصم">
+                            <i class="fas fa-minus"></i>
+                          </button>
+                          <button onclick="togglePaymentStatus(${t.id})" class="btn btn-success btn-sm icon-btn" data-bs-toggle="tooltip" title="تغيير حالة السداد">
+                            <i class="fas fa-sync-alt"></i>
+                          </button>
+                          <button onclick="deleteTransaction(${t.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف المعاملة">
+                            <i class="fas fa-trash-alt"></i>
+                          </button>
+                        </div>`;
+        }
+        html += `<tr>
+                    <td>${t.id}</td>
+                    <td>${t.creditor}</td>
+                    <td>${t.debtor}</td>
+                    <td>${t.amount} جنيه</td>
+                    <td>${t.description}</td>
+                    <td class="${t.status === 'تم الدفع' ? 'status-green' : (t.status === 'خصم' ? 'status-yellow' : 'status-red')}">${t.status}</td>
+                    <td>${t.timestamp}</td>
+                    <td class="operation-cell">${operations}</td>
+                  </tr>`;
+      });
+      html += `</tbody></table></div>`;
+      resultsContainer.innerHTML = html;
+    }
+  });
+
   // تحميل البيانات من LocalStorage عند التحميل
   window.addEventListener('load', function() {
     updateTransactionsTable();
     generateDetailedReport();
-    updateSearchResults();
   });
 
-  // تسجيل Service Worker (PWA)
+  // التعامل مع زر التثبيت (PWA)
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    const installBtn = document.getElementById('installBtn');
+    installBtn.style.display = 'block';
+    installBtn.addEventListener('click', function() {
+      installBtn.style.display = 'none';
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function(choiceResult) {
+        if (choiceResult.outcome !== 'accepted') {
+          console.log('User dismissed the install prompt');
+        }
+        deferredPrompt = null;
+      });
+    });
+  });
+
+  // تسجيل Service Worker
   if (navigator.serviceWorker) {
     navigator.serviceWorker.register('service-worker.js')
       .then(function(reg) {
@@ -684,45 +733,6 @@
       .catch(function(err) {
         console.error('Service Worker registration failed', err);
       });
-  }
-
-  // وظيفة تحديث جدول المعاملات
-  function updateTransactionsTable() {
-    const tableBody = document.getElementById('transactionsTableBody');
-    tableBody.innerHTML = '';
-    transactions.forEach(function(transaction) {
-      let operations = "";
-      if (transaction.parentId) {
-        operations = `<button onclick="deleteTransaction(${transaction.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف الخصم">
-                        <i class="fas fa-trash-alt"></i>
-                      </button>`;
-      } else {
-        operations = `<div class="operation-cell">
-                        <button onclick="deductTransaction(${transaction.id})" class="btn btn-warning btn-sm icon-btn" data-bs-toggle="tooltip" title="خصم">
-                          <i class="fas fa-minus"></i>
-                        </button>
-                        <button onclick="togglePaymentStatus(${transaction.id})" class="btn btn-success btn-sm icon-btn" data-bs-toggle="tooltip" title="تغيير حالة السداد">
-                          <i class="fas fa-sync-alt"></i>
-                        </button>
-                        <button onclick="deleteTransaction(${transaction.id})" class="btn btn-danger-custom btn-sm icon-btn" data-bs-toggle="tooltip" title="حذف المعاملة">
-                          <i class="fas fa-trash-alt"></i>
-                        </button>
-                      </div>`;
-      }
-      const row = `
-        <tr>
-          <td>${transaction.id}</td>
-          <td>${transaction.creditor}</td>
-          <td>${transaction.debtor}</td>
-          <td>${transaction.amount} جنيه</td>
-          <td>${transaction.description}</td>
-          <td class="${transaction.status === 'تم الدفع' ? 'status-green' : (transaction.status === 'خصم' ? 'status-yellow' : 'status-red')}">${transaction.status}</td>
-          <td>${transaction.timestamp}</td>
-          <td class="operation-cell">${operations}</td>
-        </tr>
-      `;
-      tableBody.innerHTML += row;
-    });
   }
 </script>
 </body>
